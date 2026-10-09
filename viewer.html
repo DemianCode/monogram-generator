@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SVG Monogram Viewer & Inspection Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #334155;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-light: rgba(99, 102, 241, 0.15);
+      --svg-border-color: #06b6d4;
+      --svg-border-dash: #ec4899;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0.75rem 1.5rem;
+    }
+
+    .top-bar {
+      max-width: 1600px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.15rem;
+      color: #fff;
+    }
+
+    .brand svg {
+      width: 28px;
+      height: 28px;
+      color: var(--accent);
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: #475569;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-active {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: #818cf8;
+    }
+
+    .search-box {
+      position: relative;
+      min-width: 220px;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+    }
+
+    .toggle-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-switch input {
+      display: none;
+    }
+
+    .slider-track {
+      width: 36px;
+      height: 20px;
+      background: #334155;
+      border-radius: 20px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .slider-track::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+
+    .toggle-switch input:checked + .slider-track {
+      background: var(--accent);
+    }
+
+    .toggle-switch input:checked + .slider-track::after {
+      transform: translateX(16px);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Drop Zone Banner */
+    .dropzone {
+      border: 2px dashed #475569;
+      border-radius: 12px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      background: rgba(30, 41, 59, 0.4);
+      margin-bottom: 1.5rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .dropzone.dragover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .dropzone p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.5rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Canvas Themes */
+    .canvas-bg-dark {
+      background-color: #1e293b;
+    }
+    .canvas-bg-light {
+      background-color: #ffffff;
+    }
+    .canvas-bg-checker {
+      background-color: #1e293b;
+      background-image: linear-gradient(45deg, #334155 25%, transparent 25%), linear-gradient(-45deg, #334155 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #334155 75%), linear-gradient(-45deg, transparent 75%, #334155 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    /* SVG DOM Inspection Bounds */
+    .show-bounds .svg-render-container svg {
+      outline: 2px dashed var(--svg-border-dash) !important;
+      outline-offset: -2px;
+      box-shadow: 0 0 0 2px var(--svg-border-color) inset !important;
+    }
+
+    .show-bounds .svg-render-container {
+      border: 2px dashed rgba(6, 182, 212, 0.6) !important;
+      position: relative;
+    }
+
+    .show-bounds .svg-render-container::before {
+      content: "SVG DOM BOUNDS";
+      position: absolute;
+      top: 4px;
+      left: 6px;
+      font-size: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: #06b6d4;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 1px 4px;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* Grid Layout */
+    .grid-view {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5);
+      border-color: #475569;
+    }
+
+    .card-preview {
+      aspect-ratio: 16 / 10;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .svg-render-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .svg-render-container svg {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+    }
+
+    /* If SVG elements are light text, invert color when in light background mode */
+    .canvas-bg-light .svg-render-container svg text {
+      fill: #111111 !important;
+    }
+
+    .card-info {
+      padding: 1rem;
+      border-top: 1px solid var(--border-color);
+      background: rgba(15, 23, 42, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      word-break: break-all;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .tag {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #334155;
+      color: #cbd5e1;
+      text-transform: uppercase;
+    }
+
+    .tag-trad { background: rgba(99, 102, 241, 0.2); color: #a5b4fc; }
+    .tag-dots { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+    .tag-hyph { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+
+    /* Carousel View */
+    .carousel-view {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .carousel-stage-container {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 620px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+    }
+
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    .carousel-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .carousel-btn.prev { left: 1.25rem; }
+    .carousel-btn.next { right: 1.25rem; }
+
+    .carousel-details {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .details-meta h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    .details-meta p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .carousel-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      background: #090d16;
+      padding: 0.4rem 0.85rem;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      color: #a5b4fc;
+    }
+
+    /* Thumbnail Strip */
+    .thumb-strip {
+      display: flex;
+      gap: 0.75rem;
+      overflow-x: auto;
+      width: 100%;
+      padding: 0.5rem 0.25rem 0.75rem 0.25rem;
+      scroll-behavior: smooth;
+    }
+
+    .thumb-strip::-webkit-scrollbar {
+      height: 6px;
+    }
+    .thumb-strip::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+
+    .thumb-item {
+      flex: 0 0 100px;
+      height: 65px;
+      border-radius: 8px;
+      border: 2px solid var(--border-color);
+      overflow: hidden;
+      cursor: pointer;
+      padding: 4px;
+      transition: all 0.2s;
+    }
+
+    .thumb-item.active {
+      border-color: var(--accent);
+      transform: scale(1.05);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .thumb-item .svg-render-container svg {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 1rem;
+      color: #475569;
+    }
+  </style>
+</head>
+<body class="show-bounds">
+
+  <!-- Header -->
+  <header>
+    <div class="top-bar">
+      <div class="brand">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+        <span>Monogram Inspector</span>
+      </div>
+
+      <div class="controls-group">
+        <!-- Search -->
+        <div class="search-box">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Filter SVGs (e.g. trad, dots)...">
+        </div>
+
+        <!-- Pick Folder / File -->
+        <label class="btn btn-primary">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          Select Folder
+          <input type="file" id="fileInput" webkitdirectory directory multiple class="hidden">
+        </label>
+
+        <!-- View Mode Switcher -->
+        <div style="display: flex; gap: 4px; background: #090d16; padding: 3px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <button class="btn btn-active" id="btnGridView" title="Grid View">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+            </svg>
+            Grid
+          </button>
+          <button class="btn" id="btnCarouselView" title="Carousel View">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4"></path>
+            </svg>
+            Carousel
+          </button>
+        </div>
+
+        <!-- SVG DOM Bounds Toggle -->
+        <label class="toggle-switch">
+          <input type="checkbox" id="chkBounds" checked>
+          <span class="slider-track"></span>
+          <span>Show SVG Bounds</span>
+        </label>
+
+        <!-- Background Theme -->
+        <select id="bgSelect" class="btn" style="padding-right: 0.5rem;">
+          <option value="canvas-bg-dark">Dark Theme</option>
+          <option value="canvas-bg-light">Light Theme</option>
+          <option value="canvas-bg-checker">Grid Checkerboard</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Drop Zone -->
+    <div class="dropzone" id="dropzone">
+      <svg width="40" height="40" fill="none" stroke="#818cf8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+      </svg>
+      <h3>Drag & Drop SVG Files or Folder Here</h3>
+      <p>Or click "Select Folder" above to inspect local monogram output files.</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="empty-state hidden">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+      </svg>
+      <h2>No SVG Files Loaded</h2>
+      <p>Select a monogram folder or drag & drop files to start inspecting.</p>
+    </div>
+
+    <!-- Grid View Container -->
+    <div id="gridView" class="grid-view"></div>
+
+    <!-- Carousel View Container -->
+    <div id="carouselView" class="carousel-view hidden">
+      <div class="carousel-stage-container canvas-bg-dark" id="carouselStage">
+        <button class="carousel-btn prev" id="btnPrev" title="Previous (Left Arrow)">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+
+        <div class="svg-render-container" id="carouselSvgSlot"></div>
+
+        <button class="carousel-btn next" id="btnNext" title="Next (Right Arrow)">
+          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Carousel Info -->
+      <div class="carousel-details">
+        <div class="details-meta">
+          <h2 id="carouselTitle">Filename.svg</h2>
+          <p id="carouselSpecs">ViewBox: 800 x 500 | Style: Traditional</p>
+        </div>
+        <div class="carousel-counter" id="carouselCounter">1 / 14</div>
+      </div>
+
+      <!-- Thumbnail Strip -->
+      <div class="thumb-strip" id="thumbStrip"></div>
+    </div>
+  </main>
+
+  <script>
+    // --- State Management ---
+    let svgFiles = []; // Array of { name, content, tags, viewBox }
+    let filteredIndices = [];
+    let currentIndex = 0;
+    let activeView = 'grid'; // 'grid' | 'carousel'
+
+    // Preset files to auto-fetch if present in relative folder
+    const AUTO_PRESETS = [
+      "A-M_C_W_3name-hyph_dots_hyph_georgia.svg",
+      "A-M_C_W_3name-hyph_trad_hyph_georgia.svg",
+      "AM_C_W_3name-hyph_dots_nohy_georgia.svg",
+      "AM_C_W_3name-hyph_trad_nohy_georgia.svg",
+      "A_W_2name_dots_nohy_georgia.svg",
+      "A_W_2name_trad_nohy_georgia.svg",
+      "E_C_A_W_4name_dots_nohy_georgia.svg",
+      "E_C_A_W_4name_trad_nohy_georgia.svg",
+      "J_F_S-C_4name-hyph_dots_hyph_georgia.svg",
+      "J_F_S-C_4name-hyph_trad_hyph_georgia.svg",
+      "J_F_SC_4name-hyph_dots_nohy_georgia.svg",
+      "J_F_SC_4name-hyph_trad_nohy_georgia.svg",
+      "J_F_W_3name_dots_nohy_georgia.svg",
+      "J_F_W_3name_trad_nohy_georgia.svg",
+      "A_V_2name_trad_nohy_georgia.svg",
+      "I_J_2name_trad_nohy_georgia.svg"
+    ];
+
+    // DOM References
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const searchInput = document.getElementById('searchInput');
+    const gridView = document.getElementById('gridView');
+    const carouselView = document.getElementById('carouselView');
+    const emptyState = document.getElementById('emptyState');
+    const chkBounds = document.getElementById('chkBounds');
+    const bgSelect = document.getElementById('bgSelect');
+    const btnGridView = document.getElementById('btnGridView');
+    const btnCarouselView = document.getElementById('btnCarouselView');
+    
+    const carouselStage = document.getElementById('carouselStage');
+    const carouselSvgSlot = document.getElementById('carouselSvgSlot');
+    const carouselTitle = document.getElementById('carouselTitle');
+    const carouselSpecs = document.getElementById('carouselSpecs');
+    const carouselCounter = document.getElementById('carouselCounter');
+    const thumbStrip = document.getElementById('thumbStrip');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+
+    // --- Helper Functions ---
+    function parseTags(filename) {
+      const tags = [];
+      const lower = filename.toLowerCase();
+      if (lower.includes('trad')) tags.push({ label: 'Traditional', class: 'tag-trad' });
+      if (lower.includes('dots')) tags.push({ label: 'Dots', class: 'tag-dots' });
+      if (lower.includes('hyph')) tags.push({ label: 'Hyphenated', class: 'tag-hyph' });
+      if (lower.includes('2name')) tags.push({ label: '2-Name', class: '' });
+      if (lower.includes('3name')) tags.push({ label: '3-Name', class: '' });
+      if (lower.includes('4name')) tags.push({ label: '4-Name', class: '' });
+      return tags;
+    }
+
+    function getViewBoxDimensions(svgText) {
+      const match = svgText.match(/viewBox=["']([^"']+)["']/i);
+      if (match) {
+        const parts = match[1].trim().split(/[\s,]+/);
+        if (parts.length >= 4) {
+          return `${parts[2]} × ${parts[3]} px`;
+        }
+      }
+      return 'Standard SVG';
+    }
+
+    function calculateMetrics(svgText) {
+      const xMatches = [...svgText.matchAll(/x=["']([^"']+)["']/gi)].map(m => parseFloat(m[1]));
+      let clippingRisk = false;
+      let minX = 800, maxX = 0;
+
+      if (xMatches.length > 0) {
+        minX = Math.min(...xMatches);
+        maxX = Math.max(...xMatches);
+        if (minX < 40 || maxX > 760) clippingRisk = true;
+      }
+
+      return {
+        minX: minX !== 800 ? minX.toFixed(1) : 'Center',
+        maxX: maxX !== 0 ? maxX.toFixed(1) : 'Center',
+        clippingRisk: clippingRisk
+      };
+    }
+
+    // --- Loading & Parsing ---
+    async function loadFiles(files) {
+      svgFiles = [];
+      for (const file of files) {
+        if (file.name.endsWith('.svg') || file.type === 'image/svg+xml') {
+          const content = await file.text();
+          const metrics = calculateMetrics(content);
+          svgFiles.push({
+            name: file.name,
+            content: content,
+            tags: parseTags(file.name),
+            specs: getViewBoxDimensions(content),
+            metrics: metrics
+          });
+        }
+      }
+      // Sort alphabetically by filename
+      svgFiles.sort((a, b) => a.name.localeCompare(b.name));
+      applyFilter();
+    }
+
+    async function autoFetchPresets() {
+      const fetched = [];
+      for (const name of AUTO_PRESETS) {
+        try {
+          const res = await fetch(name);
+          if (res.ok) {
+            const content = await res.text();
+            const metrics = calculateMetrics(content);
+            fetched.push({
+              name: name,
+              content: content,
+              tags: parseTags(name),
+              specs: getViewBoxDimensions(content),
+              metrics: metrics
+            });
+          }
+        } catch (e) {
+          // File not in current directory, ignore silently
+        }
+      }
+      if (fetched.length > 0) {
+        svgFiles = fetched;
+        applyFilter();
+      }
+    }
+
+    // --- Filtering ---
+    function applyFilter() {
+      const query = searchInput.value.toLowerCase().trim();
+      filteredIndices = [];
+      svgFiles.forEach((file, idx) => {
+        if (!query || file.name.toLowerCase().includes(query)) {
+          filteredIndices.push(idx);
+        }
+      });
+
+      if (svgFiles.length === 0) {
+        emptyState.classList.remove('hidden');
+        gridView.classList.add('hidden');
+        carouselView.classList.add('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        if (currentIndex >= filteredIndices.length) currentIndex = 0;
+        renderCurrentView();
+      }
+    }
+
+    // --- Rendering ---
+    function renderCurrentView() {
+      if (activeView === 'grid') {
+        gridView.classList.remove('hidden');
+        carouselView.classList.add('hidden');
+        renderGrid();
+      } else {
+        gridView.classList.add('hidden');
+        carouselView.classList.remove('hidden');
+        renderCarousel();
+      }
+    }
+
+    function renderGrid() {
+      gridView.innerHTML = '';
+      if (filteredIndices.length === 0) {
+        gridView.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 3rem;">No SVGs matching "${searchInput.value}"</div>`;
+        return;
+      }
+
+      const bgClass = bgSelect.value;
+
+      filteredIndices.forEach((fileIdx) => {
+        const file = svgFiles[fileIdx];
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.onclick = () => {
+          currentIndex = filteredIndices.indexOf(fileIdx);
+          switchView('carousel');
+        };
+
+        const tagsHtml = file.tags.map(t => `<span class="tag ${t.class}">${t.label}</span>`).join('');
+
+        card.innerHTML = `
+          <div class="card-preview ${bgClass}">
+            <div class="svg-render-container">${file.content}</div>
+          </div>
+          <div class="card-info">
+            <div class="card-title">
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${file.name}</span>
+            </div>
+            <div class="card-tags">
+              ${tagsHtml}
+              <span class="tag">${file.specs}</span>
+            </div>
+          </div>
+        `;
+        gridView.appendChild(card);
+      });
+    }
+
+    function renderCarousel() {
+      if (filteredIndices.length === 0) return;
+
+      const fileIdx = filteredIndices[currentIndex];
+      const file = svgFiles[fileIdx];
+
+      carouselStage.className = `carousel-stage-container ${bgSelect.value}`;
+      carouselSvgSlot.innerHTML = file.content;
+      carouselTitle.textContent = file.name;
+      carouselSpecs.textContent = `ViewBox: ${file.specs} | Items: ${currentIndex + 1} of ${filteredIndices.length}`;
+      carouselCounter.textContent = `${currentIndex + 1} / ${filteredIndices.length}`;
+
+      // Render Thumbnails
+      thumbStrip.innerHTML = '';
+      const bgClass = bgSelect.value;
+      filteredIndices.forEach((fIdx, i) => {
+        const item = svgFiles[fIdx];
+        const thumb = document.createElement('div');
+        thumb.className = `thumb-item ${bgClass} ${i === currentIndex ? 'active' : ''}`;
+        thumb.innerHTML = `<div class="svg-render-container">${item.content}</div>`;
+        thumb.onclick = () => {
+          currentIndex = i;
+          renderCarousel();
+        };
+        thumbStrip.appendChild(thumb);
+      });
+
+      // Scroll active thumbnail into view
+      const activeThumb = thumbStrip.children[currentIndex];
+      if (activeThumb) {
+        activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+
+    function switchView(mode) {
+      activeView = mode;
+      if (mode === 'grid') {
+        btnGridView.classList.add('btn-active');
+        btnCarouselView.classList.remove('btn-active');
+      } else {
+        btnCarouselView.classList.add('btn-active');
+        btnGridView.classList.remove('btn-active');
+      }
+      renderCurrentView();
+    }
+
+    // --- Navigation Controls ---
+    function prevItem() {
+      if (filteredIndices.length === 0) return;
+      currentIndex = (currentIndex - 1 + filteredIndices.length) % filteredIndices.length;
+      renderCarousel();
+    }
+
+    function nextItem() {
+      if (filteredIndices.length === 0) return;
+      currentIndex = (currentIndex + 1) % filteredIndices.length;
+      renderCarousel();
+    }
+
+    // --- Event Listeners ---
+    fileInput.addEventListener('change', (e) => loadFiles(e.target.files));
+
+    // Drag & Drop
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      if (e.relatedTarget === null) {
+        dropzone.classList.remove('dragover');
+      }
+    });
+
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        loadFiles(e.dataTransfer.files);
+      }
+    });
+
+    searchInput.addEventListener('input', applyFilter);
+
+    chkBounds.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        document.body.classList.add('show-bounds');
+      } else {
+        document.body.classList.remove('show-bounds');
+      }
+    });
+
+    bgSelect.addEventListener('change', renderCurrentView);
+
+    btnGridView.onclick = () => switchView('grid');
+    btnCarouselView.onclick = () => switchView('carousel');
+
+    btnPrev.onclick = prevItem;
+    btnNext.onclick = nextItem;
+
+    // Keyboard Arrow Navigation
+    window.addEventListener('keydown', (e) => {
+      if (activeView === 'carousel') {
+        if (e.key === 'ArrowLeft') prevItem();
+        if (e.key === 'ArrowRight') nextItem();
+        if (e.key === 'Escape') switchView('grid');
+      }
+    });
+
+    // Auto load presets if available
+    autoFetchPresets();
+  </script>
+</body>
+</html>

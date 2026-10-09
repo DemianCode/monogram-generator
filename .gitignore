@@ -1,0 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output directories
+monograms_test/
+monograms_batch/
+showcase_georgia/
+showcase_kerning_test/
+
+# OS generated files
+.DS_Store
+Thumbs.db
