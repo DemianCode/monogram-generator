@@ -631,13 +631,29 @@ def interactive_auto_tuner():
     print("\n" + "="*50)
     print("      MONOGRAM AUTO-TUNER & CALIBRATION ENGINE")
     print("="*50)
+    
+    mode = prompt_choice("Select Calibration Scope:", [
+        "Scan & Calibrate an Existing Monogram Batch Folder (Whole directory)",
+        "Run Full 26x26 Alphabet Matrix Sweep (All 676 letter pairs)",
+        "Run Quick Diagnostic Sweep (Sample tricky pairs)"
+    ], default=1)
+
     font_name = prompt_text("Enter font family to auto-tune", default="Georgia")
+    folder_path = None
+    all_pairs = False
+
+    if mode == 1:
+        folder_path = prompt_text("Enter path to batch folder containing SVGs/PNGs", default="./monograms_batch")
+    elif mode == 2:
+        all_pairs = True
+
     try:
         import auto_tuner
-        auto_tuner.run_calibration_sweep(font_name)
+        auto_tuner.run_calibration_sweep(font_family=font_name, folder_path=folder_path, all_pairs=all_pairs)
         load_tuned_kerning_config()
     except Exception as e:
         print(f"[Error] Auto-tuner failed: {e}")
+
 
 
 def main():

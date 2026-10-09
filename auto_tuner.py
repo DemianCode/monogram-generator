@@ -13,7 +13,7 @@ import json
 import os
 import re
 import sys
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 try:
     from PIL import Image, ImageFont, ImageDraw
@@ -86,7 +86,7 @@ class MonogramMetrics:
 
 # --- Vector & Pillow Font Inspection Engine ---
 
-def get_pil_font(font_family: str, font_size: int) -> ImageFont.FreeTypeFont:
+def get_pil_font(font_family: str, font_size: int) -> Any:
     """Loads font file if available, or falls back to standard system font."""
     font_names = [
         f"{font_family.lower()}.ttf",
@@ -238,88 +238,170 @@ def inspect_dots_layout(
 
 # --- Auto-Tuning Optimization Loop ---
 
-def run_calibration_sweep(font_family: str = "Georgia") -> Dict[str, Any]:
+def parse_monogram_filename(filename: str) -> Optional[Dict[str, Any]]:
     """
-    Evaluates test suite across letter combinations, detects clipping/collisions,
-    and calculates optimal tuned width ratios & kerning pairs.
+    Parses a generated monogram filename into layout parameters.
+    Format: {initials}_{name_structure}_{style}_{hyph|nohy}_{font_slug}.{ext}
+    Example: A_B_C_3name_trad_nohy_georgia.svg
+    """
+    pattern = r'^(.+)_(\d+name(?:-hyph)?)_(trad|dots)_(hyph|nohy)_([^\.]+)\.(svg|png)$'
+    match = re.match(pattern, filename)
+    if not match:
+        return None
+
+    raw_tokens, struct_tag, style, hyph_flag, font_slug, ext = match.groups()
+    tokens = raw_tokens.split('_')
+    return {
+        "tokens": tokens,
+        "struct_tag": struct_tag,
+        "style": style,
+        "has_hyphen": (hyph_flag == "hyph"),
+        "font_slug": font_slug,
+        "ext": ext
+    }
+
+
+def run_calibration_sweep(
+    font_family: str = "Georgia",
+    folder_path: Optional[str] = None,
+    all_pairs: bool = False
+) -> Dict[str, Any]:
+    """
+    Evaluates monograms, detects clipping/collisions, and calculates optimal tuned parameters.
+    Supports:
+    - Default diagnostic sweep (tricky pairs)
+    - Full alphabet matrix (all 26x26 pairs)
+    - Batch folder analysis (scanning all generated monograms in a directory)
     """
     print("=" * 60)
     print("    MONOGRAM AUTO-TUNER & SELF-CALIBRATION ENGINE")
     print("=" * 60)
     print(f"Target Font Family: {font_family}")
-    print("Running diagnostic sweep across letter combinations...\n")
 
     letters = [chr(c) for c in range(ord('A'), ord('Z') + 1)]
-    
-    # 1. Inspect Single Letter Width Ratios
     tuned_ratios = dict(monogram_v1.GLYPH_WIDTH_RATIOS)
     font = get_pil_font(font_family, 100) if HAS_PIL else None
 
+    # 1. Inspect Single Letter Width Ratios
     if font and HAS_PIL:
-        print("[Step 1] Measuring exact PIL glyph bounding boxes for 26 letters...")
+        print("\n[Step 1] Measuring exact PIL glyph bounding boxes for 26 letters...")
         for char in letters:
             bbox = font.getbbox(char)
             if bbox:
-                # bbox is (left, top, right, bottom)
                 char_w = bbox[2] - bbox[0]
                 ratio = char_w / 100.0
                 tuned_ratios[char] = round(ratio, 2)
         print("  -> Updated GLYPH_WIDTH_RATIOS from font metrics.")
-
-    # 2. Inspect Tricky Pairs & Calibrate Kerning Pairs
-    tricky_pairs = [
-        ("A", "V"), ("A", "W"), ("A", "Y"), ("V", "A"), ("W", "A"), ("Y", "A"),
-        ("L", "V"), ("L", "W"), ("L", "Y"), ("L", "T"), ("T", "A"), ("F", "A"),
-        ("I", "J"), ("J", "I"), ("M", "M"), ("W", "W"), ("H", "H"), ("O", "O")
-    ]
+    else:
+        print("\n[Step 1] Using vector optical width ratios (Pillow PIL not active).")
 
     tuned_pairs = dict(monogram_v1.KERNING_PAIRS)
-    metrics_log = []
-
-    print("\n[Step 2] Evaluating layout metrics across test monograms...")
+    metrics_log: List[MonogramMetrics] = []
     clip_count = 0
     collision_count = 0
 
-    # Test traditional monograms
-    for p1, p2 in tricky_pairs:
-        m = inspect_trad_layout([p1], p2, font_family=font_family)
-        metrics_log.append(m)
+    # 2. Determine Layout Combinations to Inspect
+    if folder_path and os.path.isdir(folder_path):
+        print(f"\n[Step 2] Scanning all monograms in directory: '{folder_path}'...")
+        files = [f for f in os.listdir(folder_path) if f.endswith(('.svg', '.png'))]
+        print(f"  Found {len(files)} generated monogram assets.")
 
-        if m.is_clipped:
-            clip_count += 1
-            print(f"  [Clipping Alert] {p1}_{p2} (Trad) -> Left: {m.margin_left:.1f}px, Right: {m.margin_right:.1f}px")
+        parsed_items = []
+        for f in files:
+            parsed = parse_monogram_filename(f)
+            if parsed:
+                parsed_items.append(parsed)
 
-        if m.is_colliding:
-            collision_count += 1
-            # Auto-adjust kerning pair to add clearance
-            curr_val = tuned_pairs.get((p1, p2), 0.0)
-            tuned_pairs[(p1, p2)] = round(curr_val + 0.04, 2)
-            print(f"  [Collision Fixed] {p1}_{p2} -> adjusted kerning pair from {curr_val} to {tuned_pairs[(p1, p2)]}")
-        elif m.is_excessive_gap:
-            # Auto-adjust kerning pair to pull closer
-            curr_val = tuned_pairs.get((p1, p2), 0.0)
-            tuned_pairs[(p1, p2)] = round(curr_val - 0.04, 2)
-            print(f"  [Gap Pulled Tighter] {p1}_{p2} -> adjusted kerning pair to {tuned_pairs[(p1, p2)]}")
+        if not parsed_items:
+            print("  [Warning] No matching monogram filenames found. Falling back to default sweep.")
+            items_to_test = [("trad", [p1], p2) for p1, p2 in [("A", "V"), ("A", "W"), ("L", "Y"), ("T", "A")]]
+        else:
+            print(f"  Successfully parsed {len(parsed_items)} monogram configurations.")
+            for p in parsed_items:
+                tokens = p["tokens"]
+                style = p["style"]
+                if style == "trad" and len(tokens) >= 2:
+                    flank = tokens[:-1]
+                    surname = tokens[-1]
+                    m = inspect_trad_layout(flank, surname, font_family=font_family, ratios=tuned_ratios, kerning_pairs=tuned_pairs)
+                else:
+                    m = inspect_dots_layout(tokens, font_family=font_family)
 
-    # Test multi-letter combinations
-    multi_tests = [
-        (["A", "M"], "W"),
-        (["J", "F"], "S-C"),
-        (["E", "C", "A"], "W"),
-        (["I", "I"], "J")
-    ]
-    for flank, sur in multi_tests:
-        m = inspect_trad_layout(flank, sur, font_family=font_family)
-        metrics_log.append(m)
-        if m.is_clipped:
-            clip_count += 1
-            print(f"  [Clipping Alert] {'_'.join(flank)}_{sur} -> Left: {m.margin_left:.1f}px, Right: {m.margin_right:.1f}px")
+                metrics_log.append(m)
+                if m.is_clipped:
+                    clip_count += 1
+                if m.is_colliding:
+                    collision_count += 1
+                    if style == "trad" and len(tokens) >= 2:
+                        pair = (tokens[-2][-1].upper(), tokens[-1][0].upper())
+                        curr_val = tuned_pairs.get(pair, 0.0)
+                        tuned_pairs[pair] = round(curr_val + 0.04, 2)
+                elif m.is_excessive_gap:
+                    if style == "trad" and len(tokens) >= 2:
+                        pair = (tokens[-2][-1].upper(), tokens[-1][0].upper())
+                        curr_val = tuned_pairs.get(pair, 0.0)
+                        tuned_pairs[pair] = round(curr_val - 0.04, 2)
+
+    elif all_pairs:
+        print("\n[Step 2] Running full 26 x 26 alphabet matrix calibration (676 pairs)...")
+        for c1 in letters:
+            for c2 in letters:
+                m = inspect_trad_layout([c1], c2, font_family=font_family, ratios=tuned_ratios, kerning_pairs=tuned_pairs)
+                metrics_log.append(m)
+                if m.is_clipped:
+                    clip_count += 1
+                if m.is_colliding:
+                    collision_count += 1
+                    pair = (c1, c2)
+                    curr_val = tuned_pairs.get(pair, 0.0)
+                    tuned_pairs[pair] = round(curr_val + 0.04, 2)
+                elif m.is_excessive_gap:
+                    pair = (c1, c2)
+                    curr_val = tuned_pairs.get(pair, 0.0)
+                    tuned_pairs[pair] = round(curr_val - 0.04, 2)
+
+    else:
+        print("\n[Step 2] Evaluating layout metrics across diagnostic test suite...")
+        tricky_pairs = [
+            ("A", "V"), ("A", "W"), ("A", "Y"), ("V", "A"), ("W", "A"), ("Y", "A"),
+            ("L", "V"), ("L", "W"), ("L", "Y"), ("L", "T"), ("T", "A"), ("F", "A"),
+            ("I", "J"), ("J", "I"), ("M", "M"), ("W", "W"), ("H", "H"), ("O", "O")
+        ]
+        for p1, p2 in tricky_pairs:
+            m = inspect_trad_layout([p1], p2, font_family=font_family, ratios=tuned_ratios, kerning_pairs=tuned_pairs)
+            metrics_log.append(m)
+            if m.is_clipped:
+                clip_count += 1
+                print(f"  [Clipping Alert] {p1}_{p2} (Trad) -> Left: {m.margin_left:.1f}px, Right: {m.margin_right:.1f}px")
+
+            if m.is_colliding:
+                collision_count += 1
+                curr_val = tuned_pairs.get((p1, p2), 0.0)
+                tuned_pairs[(p1, p2)] = round(curr_val + 0.04, 2)
+                print(f"  [Collision Fixed] {p1}_{p2} -> adjusted kerning pair from {curr_val} to {tuned_pairs[(p1, p2)]}")
+            elif m.is_excessive_gap:
+                curr_val = tuned_pairs.get((p1, p2), 0.0)
+                tuned_pairs[(p1, p2)] = round(curr_val - 0.04, 2)
+                print(f"  [Gap Pulled Tighter] {p1}_{p2} -> adjusted kerning pair to {tuned_pairs[(p1, p2)]}")
+
+        multi_tests = [
+            (["A", "M"], "W"),
+            (["J", "F"], "S-C"),
+            (["E", "C", "A"], "W"),
+            (["I", "I"], "J")
+        ]
+        for flank, sur in multi_tests:
+            m = inspect_trad_layout(flank, sur, font_family=font_family, ratios=tuned_ratios, kerning_pairs=tuned_pairs)
+            metrics_log.append(m)
+            if m.is_clipped:
+                clip_count += 1
+                print(f"  [Clipping Alert] {'_'.join(flank)}_{sur} -> Left: {m.margin_left:.1f}px, Right: {m.margin_right:.1f}px")
 
     print("\n" + "-" * 50)
-    print(f"CALIBRATION SUMMARY:")
+    print("CALIBRATION SUMMARY:")
     print(f"  Total Monograms Analyzed: {len(metrics_log)}")
     print(f"  Clipping Issues Detected: {clip_count}")
-    print(f"  Collision Issues Fixed:   {collision_count}")
+    print(f"  Collision / Gap Fixes:   {collision_count}")
     print("-" * 50)
 
     # Convert tuple keys to string for JSON serialization
@@ -345,5 +427,12 @@ def run_calibration_sweep(font_family: str = "Georgia") -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    font_arg = sys.argv[1] if len(sys.argv) > 1 else "Georgia"
-    run_calibration_sweep(font_arg)
+    import argparse
+    parser = argparse.ArgumentParser(description="Monogram Auto-Tuner & Calibration Engine")
+    parser.add_argument("font", nargs="?", default="Georgia", help="Font family name")
+    parser.add_argument("--folder", "-f", help="Path to folder containing generated monograms to scan")
+    parser.add_argument("--all-pairs", "-a", action="store_true", help="Run full 26x26 letter matrix calibration")
+    args = parser.parse_args()
+
+    run_calibration_sweep(font_family=args.font, folder_path=args.folder, all_pairs=args.all_pairs)
+
